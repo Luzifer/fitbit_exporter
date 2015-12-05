@@ -72,14 +72,12 @@ func handleFitBitCallback(res http.ResponseWriter, r *http.Request) {
 	if userData.Users[userID].SubscriberID == 0 {
 		userData.MaxSubscriptionID++
 		userData.Users[userID].SubscriberID = userData.MaxSubscriptionID
-		if err := fitBitHTTPRequest(
-			userData.Users[userID].AccessToken,
-			"POST", fmt.Sprintf("/user/-/apiSubscriptions/%d.json", userData.Users[userID].SubscriberID),
-			nil, nil); err != nil {
-			log.Printf("ERR: Unable to register subscriber: %s", err)
-			http.Redirect(res, r, "/", http.StatusFound)
-			return
-		}
+	}
+	subscriptionURL := fmt.Sprintf("/user/-/apiSubscriptions/%d.json", userData.Users[userID].SubscriberID)
+	if err := fitBitHTTPRequest(userData.Users[userID].AccessToken, "POST", subscriptionURL, nil, nil); err != nil {
+		log.Printf("ERR: Unable to register subscriber: %s", err)
+		http.Redirect(res, r, "/", http.StatusFound)
+		return
 	}
 
 	userData.Save()
