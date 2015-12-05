@@ -95,9 +95,11 @@ func handleSubscription(res http.ResponseWriter, r *http.Request) {
 	// Handle verification of the subscriber
 	if r.URL.Query().Get("verify") != "" {
 		if r.URL.Query().Get("verify") == cfg.SubscriberVerification {
+			log.Printf("Got valid verification code: %s", r.URL.Query().Get("verify"))
 			res.WriteHeader(204)
 			return
 		} else {
+			log.Printf("Got invalid verification code: %s", r.URL.Query().Get("verify"))
 			res.WriteHeader(404)
 			return
 		}
