@@ -136,8 +136,6 @@ func extractFitBitProfileID(token string) (string, error) {
 		return "", err
 	}
 
-	log.Printf("DBG: %+v", res)
-
 	if res.User.EncodedID == "" {
 		return "", fmt.Errorf("Invalid User-ID received")
 	}
