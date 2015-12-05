@@ -7,7 +7,8 @@ ADD ./ /go/src/github.com/Luzifer/fitbit_exporter
 WORKDIR /go/src/github.com/Luzifer/fitbit_exporter
 
 RUN apk --update add go ca-certificates \
- && go install
+ && go install \
+ && apk --purge del go
 
 ENTRYPOINT ["/go/bin/fitbit_exporter"]
 CMD ["--"]
