@@ -243,7 +243,8 @@ func (u *userDBEntry) RefreshActivityData(update fitBitSubscriptionUpdate) error
 	}
 
 	u.CurrentValues.Steps = d.Summary.Steps
-	u.Metrics.Steps.Set(float64(d.Summary.Steps))
+	u.Metrics.TotalSteps.Set(float64(d.Summary.Steps))
+	u.Metrics.DailySteps.Set(float64(d.Summary.Steps))
 
 	u.CurrentValues.Calories = d.Summary.Calories
 	u.Metrics.Calories.Set(float64(d.Summary.Calories))

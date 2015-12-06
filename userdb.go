@@ -44,10 +44,11 @@ type userDBEntry struct {
 		Weight  prometheus.Gauge
 		BodyFat prometheus.Gauge
 		// activity
-		Steps    prometheus.Counter
-		Calories prometheus.Counter
-		Distance prometheus.Counter
-		Floors   prometheus.Counter
+		TotalSteps prometheus.Counter
+		DailySteps prometheus.Gauge
+		Calories   prometheus.Counter
+		Distance   prometheus.Counter
+		Floors     prometheus.Counter
 	} `json:"-"`
 }
 
@@ -69,8 +70,15 @@ func (u *userDBEntry) InitializeMetrics(userID string) {
 		},
 	})
 
-	u.Metrics.Steps = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "fitbit_steps",
+	u.Metrics.TotalSteps = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "fitbit_total_steps",
+		Help: "Step count",
+		ConstLabels: prometheus.Labels{
+			"userID": userID,
+		},
+	})
+	u.Metrics.DailySteps = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "fitbit_daily_steps",
 		Help: "Step count",
 		ConstLabels: prometheus.Labels{
 			"userID": userID,
@@ -100,14 +108,16 @@ func (u *userDBEntry) InitializeMetrics(userID string) {
 
 	u.Metrics.Weight.Set(u.CurrentValues.Weight)
 	u.Metrics.BodyFat.Set(u.CurrentValues.BodyFat)
-	u.Metrics.Steps.Set(float64(u.CurrentValues.Steps))
+	u.Metrics.TotalSteps.Set(float64(u.CurrentValues.Steps))
+	u.Metrics.DailySteps.Set(float64(u.CurrentValues.Steps))
 	u.Metrics.Calories.Set(float64(u.CurrentValues.Calories))
 	u.Metrics.Distance.Set(u.CurrentValues.Distance)
 	u.Metrics.Floors.Set(float64(u.CurrentValues.Floors))
 
 	prometheus.MustRegister(u.Metrics.BodyFat)
 	prometheus.MustRegister(u.Metrics.Weight)
-	prometheus.MustRegister(u.Metrics.Steps)
+	prometheus.MustRegister(u.Metrics.TotalSteps)
+	prometheus.MustRegister(u.Metrics.DailySteps)
 	prometheus.MustRegister(u.Metrics.Calories)
 	prometheus.MustRegister(u.Metrics.Distance)
 	prometheus.MustRegister(u.Metrics.Floors)
