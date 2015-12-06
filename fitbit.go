@@ -125,7 +125,9 @@ func handleSubscription(res http.ResponseWriter, r *http.Request) {
 				go usr.RefreshActivityData(u)
 			}
 		case "body":
-			// Fetch weight data
+			if usr, ok := userData.Users[u.OwnerID]; ok {
+				go usr.RefreshWeightData(u)
+			}
 		}
 	}
 }
@@ -258,6 +260,51 @@ func (u *userDBEntry) RefreshActivityData(update fitBitSubscriptionUpdate) error
 			u.Metrics.Distance.Set(v.Distance)
 		}
 	}
+
+	userData.Save()
+
+	return nil
+}
+
+func (u *userDBEntry) RefreshWeightData(update fitBitSubscriptionUpdate) error {
+	if update.Date != time.Now().Format("2006-01-02") {
+		// Drop old updates
+		return nil
+	}
+
+	if err := u.UpdateAccessToken(); err != nil {
+		return err
+	}
+
+	d := struct {
+		Weight []struct {
+			BMI    float64 `json:"bmi"`
+			Date   string  `json:"date"`
+			Time   string  `json:"time"`
+			Weight float64 `json:"weight"`
+		} `json:"weight"`
+		Fat []struct {
+			Date string  `json:"date"`
+			Fat  float64 `json:"fat"`
+			Time string  `json:"time"`
+		} `json:"fat"`
+	}{}
+
+	if err := fitBitHTTPRequest(u.AccessToken, "GET", fmt.Sprintf("/user/-/body/log/weight/date/%s.json", update.Date), nil, &d); err != nil {
+		log.Printf("ERR: Unable to fetch weight data: %s", err)
+		return err
+	}
+
+	if err := fitBitHTTPRequest(u.AccessToken, "GET", fmt.Sprintf("/user/-/body/log/fat/date/%s.json", update.Date), nil, &d); err != nil {
+		log.Printf("ERR: Unable to fetch fat data: %s", err)
+		return err
+	}
+
+	u.CurrentValues.Weight = d.Weight[0].Weight
+	u.Metrics.Weight.Set(d.Weight[0].Weight)
+
+	u.CurrentValues.BodyFat = d.Fat[0].Fat
+	u.Metrics.BodyFat.Set(d.Fat[0].Fat)
 
 	userData.Save()
 
