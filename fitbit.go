@@ -15,6 +15,12 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+type fitBitSubscriptionUpdate struct {
+	CollectionType string `json:"collectionType"`
+	Date           string `json:"date"`
+	OwnerID        string `json:"ownerId"`
+}
+
 func handleFitBitCallback(res http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	params := url.Values{
@@ -103,6 +109,25 @@ func handleSubscription(res http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Handle subscription messages
+	res.WriteHeader(204)
+
+	updates := []fitBitSubscriptionUpdate{}
+	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
+		log.Printf("Subscriber: Unexpected payload: %s", err)
+		return
+	}
+
+	for _, u := range updates {
+		switch u.CollectionType {
+		case "activities":
+			if usr, ok := userData.Users[u.OwnerID]; ok {
+				go usr.RefreshActivityData(u)
+			}
+		case "body":
+			// Fetch weight data
+		}
+	}
 }
 
 func fitBitHTTPRequest(token, method, apiCall string, body io.Reader, result interface{}) error {
@@ -141,4 +166,99 @@ func extractFitBitProfileID(token string) (string, error) {
 	}
 
 	return res.User.EncodedID, nil
+}
+
+func (u *userDBEntry) UpdateAccessToken() error {
+	u.accessTokenLock.Lock()
+
+	if u.AccessTokenRefreshedAt.After(time.Now().Add(-45 * time.Minute)) {
+		u.accessTokenLock.Unlock()
+		return nil
+	}
+
+	params := url.Values{
+		"grant_type":    []string{"refresh_token"},
+		"refresh_token": []string{u.RefreshToken},
+	}
+	req, _ := http.NewRequest("POST", "https://api.fitbit.com/oauth2/token", bytes.NewBuffer([]byte(params.Encode())))
+	req.SetBasicAuth(cfg.ClientID, cfg.ClientSecret)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	res := struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		Errors       []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}{}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return err
+	}
+	if res.AccessToken == "" {
+		return fmt.Errorf("Something went wrong: %+v", res)
+	}
+
+	u.RefreshToken = res.RefreshToken
+	u.AccessToken = res.AccessToken
+	u.AccessTokenRefreshedAt = time.Now()
+
+	userData.Save()
+
+	u.accessTokenLock.Unlock()
+	return nil
+}
+
+func (u *userDBEntry) RefreshActivityData(update fitBitSubscriptionUpdate) error {
+	if update.Date != time.Now().Format("2006-01-02") {
+		// Drop old updates
+		return nil
+	}
+
+	if err := u.UpdateAccessToken(); err != nil {
+		return err
+	}
+
+	d := struct {
+		Summary struct {
+			Steps     int `json:"steps"`
+			Calories  int `json:"caloriesOut"`
+			Distances []struct {
+				Activity string  `json:"activity"`
+				Distance float64 `json:"distance"`
+			} `json:"distances"`
+			Floors int `json:"floors"`
+		} `json:"summary"`
+	}{}
+
+	err := fitBitHTTPRequest(u.AccessToken, "GET", fmt.Sprintf("/user/-/activities/date/%s.json", update.Date), nil, &d)
+	if err != nil {
+		log.Printf("ERR: Unable to fetch activity data: %s", err)
+		return err
+	}
+
+	u.CurrentValues.Steps = d.Summary.Steps
+	u.Metrics.Steps.Set(float64(d.Summary.Steps))
+
+	u.CurrentValues.Calories = d.Summary.Calories
+	u.Metrics.Calories.Set(float64(d.Summary.Calories))
+
+	u.CurrentValues.Floors = d.Summary.Floors
+	u.Metrics.Floors.Set(float64(d.Summary.Floors))
+
+	for _, v := range d.Summary.Distances {
+		if v.Activity == "total" {
+			u.CurrentValues.Distance = v.Distance
+			u.Metrics.Distance.Set(v.Distance)
+		}
+	}
+
+	userData.Save()
+
+	return nil
 }

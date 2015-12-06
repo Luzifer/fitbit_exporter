@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,7 +24,8 @@ type userDBEntry struct {
 	SubscriberID           int
 
 	// Application stuff
-	Secret string
+	Secret          string
+	accessTokenLock sync.Mutex `json:"-"`
 
 	CurrentValues struct {
 		Weight  float64
@@ -31,7 +33,7 @@ type userDBEntry struct {
 
 		Steps    int
 		Calories int
-		Distance int
+		Distance float64
 		Floors   int
 	}
 
@@ -100,7 +102,7 @@ func (u *userDBEntry) InitializeMetrics(userID string) {
 	u.Metrics.BodyFat.Set(u.CurrentValues.BodyFat)
 	u.Metrics.Steps.Set(float64(u.CurrentValues.Steps))
 	u.Metrics.Calories.Set(float64(u.CurrentValues.Calories))
-	u.Metrics.Distance.Set(float64(u.CurrentValues.Distance))
+	u.Metrics.Distance.Set(u.CurrentValues.Distance)
 	u.Metrics.Floors.Set(float64(u.CurrentValues.Floors))
 
 	prometheus.MustRegister(u.Metrics.BodyFat)
