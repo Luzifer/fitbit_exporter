@@ -135,6 +135,7 @@ func handleSubscription(res http.ResponseWriter, r *http.Request) {
 func fitBitHTTPRequest(token, method, apiCall string, body io.Reader, result interface{}) error {
 	req, _ := http.NewRequest(method, "https://api.fitbit.com/1"+apiCall, body)
 	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept-Language", "de_DE")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
