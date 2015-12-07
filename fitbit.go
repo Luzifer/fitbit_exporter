@@ -304,11 +304,15 @@ func (u *userDBEntry) RefreshWeightData(update fitBitSubscriptionUpdate) error {
 		return err
 	}
 
-	u.CurrentValues.Weight = d.Weight[0].Weight
-	u.Metrics.Weight.Set(d.Weight[0].Weight)
+	if len(d.Weight) > 0 {
+		u.CurrentValues.Weight = d.Weight[0].Weight
+		u.Metrics.Weight.Set(d.Weight[0].Weight)
+	}
 
-	u.CurrentValues.BodyFat = d.Fat[0].Fat
-	u.Metrics.BodyFat.Set(d.Fat[0].Fat)
+	if len(d.Fat) > 0 {
+		u.CurrentValues.BodyFat = d.Fat[0].Fat
+		u.Metrics.BodyFat.Set(d.Fat[0].Fat)
+	}
 
 	userData.Save()
 
