@@ -88,6 +88,9 @@ func handleFitBitCallback(res http.ResponseWriter, r *http.Request) {
 
 	userData.Save()
 
+	userData.Users[userID].RefreshActivityData(fitBitSubscriptionUpdate{Date: time.Now().Format("2006-01-02")})
+	userData.Users[userID].RefreshWeightData(fitBitSubscriptionUpdate{Date: time.Now().Format("2006-01-02")})
+
 	renderTemplate(res, "authorized", pongo2.Context{
 		"secret":  userData.Users[userID].Secret,
 		"userID":  userID,
