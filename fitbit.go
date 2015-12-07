@@ -294,12 +294,12 @@ func (u *userDBEntry) RefreshWeightData(update fitBitSubscriptionUpdate) error {
 		} `json:"fat"`
 	}{}
 
-	if err := fitBitHTTPRequest(u.AccessToken, "GET", fmt.Sprintf("/user/-/body/log/weight/date/%s.json", update.Date), nil, &d); err != nil {
+	if err := fitBitHTTPRequest(u.AccessToken, "GET", fmt.Sprintf("/user/-/body/log/weight/date/%s/7d.json", update.Date), nil, &d); err != nil {
 		log.Printf("ERR: Unable to fetch weight data: %s", err)
 		return err
 	}
 
-	if err := fitBitHTTPRequest(u.AccessToken, "GET", fmt.Sprintf("/user/-/body/log/fat/date/%s.json", update.Date), nil, &d); err != nil {
+	if err := fitBitHTTPRequest(u.AccessToken, "GET", fmt.Sprintf("/user/-/body/log/fat/date/%s/7d.json", update.Date), nil, &d); err != nil {
 		log.Printf("ERR: Unable to fetch fat data: %s", err)
 		return err
 	}
