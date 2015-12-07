@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/flosch/pongo2"
@@ -20,6 +21,25 @@ type fitBitSubscriptionUpdate struct {
 	Date           string `json:"date"`
 	OwnerID        string `json:"ownerId"`
 }
+
+type fitBitBodyData struct {
+	Date  string `json:"date"`
+	Time  string `json:"time"`
+	LogID int64  `json:"logId"`
+
+	// Weight data
+	BMI    float64 `json:"bmi"`
+	Weight float64 `json:"weight"`
+
+	// Fat data
+	Fat float64 `json:"fat"`
+}
+
+type fitBitBodyDataByLogID []fitBitBodyData
+
+func (b fitBitBodyDataByLogID) Len() int           { return len(b) }
+func (b fitBitBodyDataByLogID) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b fitBitBodyDataByLogID) Less(i, j int) bool { return b[i].LogID < b[j].LogID }
 
 func handleFitBitCallback(res http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
@@ -281,17 +301,8 @@ func (u *userDBEntry) RefreshWeightData(update fitBitSubscriptionUpdate) error {
 	}
 
 	d := struct {
-		Weight []struct {
-			BMI    float64 `json:"bmi"`
-			Date   string  `json:"date"`
-			Time   string  `json:"time"`
-			Weight float64 `json:"weight"`
-		} `json:"weight"`
-		Fat []struct {
-			Date string  `json:"date"`
-			Fat  float64 `json:"fat"`
-			Time string  `json:"time"`
-		} `json:"fat"`
+		Weight []fitBitBodyData `json:"weight"`
+		Fat    []fitBitBodyData `json:"fat"`
 	}{}
 
 	if err := fitBitHTTPRequest(u.AccessToken, "GET", fmt.Sprintf("/user/-/body/log/weight/date/%s/7d.json", update.Date), nil, &d); err != nil {
@@ -303,6 +314,9 @@ func (u *userDBEntry) RefreshWeightData(update fitBitSubscriptionUpdate) error {
 		log.Printf("ERR: Unable to fetch fat data: %s", err)
 		return err
 	}
+
+	sort.Sort(sort.Reverse(fitBitBodyDataByLogID(d.Weight)))
+	sort.Sort(sort.Reverse(fitBitBodyDataByLogID(d.Fat)))
 
 	if len(d.Weight) > 0 {
 		u.CurrentValues.Weight = d.Weight[0].Weight
